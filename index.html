@@ -290,9 +290,9 @@ const dateStr = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
 
 function calcEndDate(startDate, days){
   if(!startDate)return"";
-  const d=new Date(startDate);
-  d.setDate(d.getDate()+(parseInt(days)||1)-1);
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const[y,m,d]=startDate.split("-").map(Number);
+  const end=new Date(y,m-1,d+(parseInt(days)||1)-1);
+  return`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}`;
 }
 
 function jobSpansDay(job, ds){
