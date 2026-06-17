@@ -296,13 +296,22 @@ function calcEndDate(startDate, days){
 }
 
 function jobSpansDay(job, ds){
-  const start = new Date(job.date+"T00:00:00");
-  const end   = new Date(calcEndDate(job.date, job.duration||1)+"T00:00:00");
-  const check = new Date(ds+"T00:00:00");
-  return check >= start && check <= end;
+  if(!job.date||!ds)return false;
+  const [sy,sm,sd]=job.date.split("-").map(Number);
+  const end=calcEndDate(job.date,job.duration||1);
+  const [ey,em,ed]=end.split("-").map(Number);
+  const [cy,cm,cd]=ds.split("-").map(Number);
+  const start=sy*10000+sm*100+sd;
+  const endN=ey*10000+em*100+ed;
+  const check=cy*10000+cm*100+cd;
+  return check>=start&&check<=endN;
 }
 
-const jobsForMonth = (y,m) => jobs.filter(j=>{const d=new Date(j.date);return d.getFullYear()===y&&d.getMonth()===m;});
+const jobsForMonth = (y,m) => jobs.filter(j=>{
+  if(!j.date)return false;
+  const parts=j.date.split("-");
+  return parseInt(parts[0])===y && parseInt(parts[1])-1===m;
+});
 const activeJobs   = () => filterCrew===0 ? jobs : jobs.filter(j=>j.crewId===filterCrew);
 
 function getConflicts(){
