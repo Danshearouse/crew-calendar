@@ -265,10 +265,16 @@ async function initApp(){
     document.getElementById("loading-screen").style.display="none";
     document.getElementById("app").style.display="flex";
     render();
+    // Real-time subscription
     db.channel("jobs-rt")
       .on("postgres_changes",{event:"*",schema:"public",table:"jobs"},async()=>{
         await fetchJobs(); render();
-      }).subscribe();
+      }).subscribe((status)=>{
+        if(status==="SUBSCRIBED") setBadge("ok","● Live — real-time");
+        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") setBadge("busy","● Polling every 30s");
+      });
+    // Auto-refresh every 30 seconds as a reliable fallback
+    setInterval(async()=>{ await fetchJobs(); render(); }, 30000);
   }catch(e){
     document.getElementById("loading-screen").innerHTML=
       `<p style="color:#DC2626;padding:20px;text-align:center">Connection error: ${e.message}<br><br>
