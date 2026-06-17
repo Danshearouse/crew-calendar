@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Crew Scheduling — Ironrock</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F4;color:#1C1917}
@@ -165,8 +165,7 @@
 // ── CONFIG ────────────────────────────────────────────────
 const SUPA_URL = "https://ljplsmawqpufsbujmcfx.supabase.co";
 const SUPA_KEY = "sb_publishable_MBATE_mA-5vOqeIUVge9QQ_h9Omm_IV";
-const { createClient } = supabase;
-const db = createClient(SUPA_URL, SUPA_KEY);
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 const CREWS = [
   {id:1,name:"Crew Alpha",  color:"#0078D4",light:"#E6F1FB",dark:"#004578"},
