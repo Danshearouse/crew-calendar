@@ -229,7 +229,7 @@ async function fetchJobs(){
   setBadge("busy","Loading...");
   const{data,error}=await db.from("jobs").select("*").order("job_date",{ascending:true});
   if(error){ setBadge("err","⚠ Fetch error"); console.error("fetchJobs error:",error); throw error; }
-  jobs=data.map(mapRow);
+  jobs=[...data.map(mapRow)]; // force new array reference
   setBadge("ok",`● Live — ${jobs.length} jobs`);
 }
 
