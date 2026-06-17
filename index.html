@@ -4,12 +4,30 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Crew Scheduling — Ironrock</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F4;color:#1C1917}
-    .app{display:flex;height:100vh;flex-direction:column}
-    .header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:1px solid #E7E5E4}
+    #password-screen{position:fixed;inset:0;background:#F5F5F4;display:flex;align-items:center;justify-content:center;z-index:999}
+    .pw-box{background:#fff;border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.12);text-align:center}
+    .pw-box h2{font-size:16px;font-weight:600;margin-bottom:6px}
+    .pw-box p{font-size:13px;color:#78716C;margin-bottom:20px}
+    .pw-box input{width:100%;font-size:14px;padding:10px 12px;border:1px solid #E7E5E4;border-radius:8px;outline:none;margin-bottom:10px}
+    .pw-box input:focus{border-color:#0078D4}
+    .pw-error{font-size:12px;color:#DC2626;margin-bottom:8px;display:none}
+    .pw-box button{width:100%;padding:10px;background:#0078D4;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+    .pw-box button:hover{background:#106EBE}
+    #loading-screen{position:fixed;inset:0;background:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:998}
+    #loading-screen p{font-size:14px;color:#78716C}
+    .spinner{width:32px;height:32px;border:3px solid #E7E5E4;border-top-color:#0078D4;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .app{display:flex;height:100vh;flex-direction:column;display:none}
+    .header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:1px solid #E7E5E4;flex-shrink:0}
     .header h1{font-size:16px;font-weight:600;flex:1}
+    .sync-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+    .sync-ok{background:#E1F5EE;color:#054220}
+    .sync-busy{background:#FEF3CD;color:#4D3706}
+    .sync-err{background:#FAECE7;color:#6E1E09}
     .body{display:flex;flex:1;overflow:hidden}
     .sidebar{width:210px;min-width:210px;border-right:1px solid #E7E5E4;display:flex;flex-direction:column;background:#FAFAF9}
     .sidebar-hdr{padding:14px 12px 10px;border-bottom:1px solid #E7E5E4;font-size:12px;font-weight:600;color:#78716C;text-transform:uppercase;letter-spacing:.05em}
@@ -105,20 +123,31 @@
   </style>
 </head>
 <body>
-<div id="password-screen" style="position:fixed;inset:0;background:#F5F5F4;display:flex;align-items:center;justify-content:center;z-index:999">
-  <div style="background:#fff;border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.12);text-align:center">
+
+<!-- Password screen -->
+<div id="password-screen">
+  <div class="pw-box">
     <svg width="32" height="32" viewBox="0 0 21 21" style="margin-bottom:16px"><rect width="10" height="10" fill="#F25022"/><rect x="11" width="10" height="10" fill="#7FBA00"/><rect y="11" width="10" height="10" fill="#00A4EF"/><rect x="11" y="11" width="10" height="10" fill="#FFB900"/></svg>
-    <h2 style="font-size:16px;font-weight:600;margin-bottom:6px">Crew Scheduling — Ironrock</h2>
-    <p style="font-size:13px;color:#78716C;margin-bottom:20px">Enter the password to continue</p>
-    <input id="pw-input" type="password" placeholder="Password" style="width:100%;font-size:14px;padding:10px 12px;border:1px solid #E7E5E4;border-radius:8px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')checkPw()">
-    <div id="pw-error" style="font-size:12px;color:#DC2626;margin-bottom:8px;display:none">Incorrect password. Please try again.</div>
-    <button onclick="checkPw()" style="width:100%;padding:10px;background:#0078D4;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">Enter</button>
+    <h2>Crew Scheduling — Ironrock</h2>
+    <p>Enter the password to continue</p>
+    <input id="pw-input" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
+    <div id="pw-error" class="pw-error">Incorrect password. Please try again.</div>
+    <button onclick="checkPw()">Enter</button>
   </div>
 </div>
-<div class="app" id="app" style="display:none">
+
+<!-- Loading screen -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Loading jobs...</p>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
   <div class="header">
     <svg width="20" height="20" viewBox="0 0 21 21"><rect width="10" height="10" fill="#F25022"/><rect x="11" width="10" height="10" fill="#7FBA00"/><rect y="11" width="10" height="10" fill="#00A4EF"/><rect x="11" y="11" width="10" height="10" fill="#FFB900"/></svg>
     <h1>Crew Scheduling — Ironrock</h1>
+    <span id="sync-badge" class="sync-badge sync-ok">● Live</span>
   </div>
   <div class="body">
     <div class="sidebar">
@@ -128,7 +157,15 @@
     <div class="main" id="main"></div>
   </div>
 </div>
+
 <script>
+// ── SUPABASE ──────────────────────────────────────────────
+const SUPA_URL = "https://ljplsmawqpufsbujmcfx.supabase.co";
+const SUPA_KEY = "sb_publishable_MBATE_mA-5vOqeIUVge9QQ_h9Omm_IV";
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+// ── STATIC DATA ───────────────────────────────────────────
 const CREWS=[
   {id:1,name:"Crew Alpha",  color:"#0078D4",light:"#E6F1FB",dark:"#004578"},
   {id:2,name:"Crew Bravo",  color:"#107C41",light:"#E1F5EE",dark:"#054220"},
@@ -139,10 +176,93 @@ const CREWS=[
 ];
 const STATUSES=["Pending","Active","Done"];
 const PRECONSTRUCT=["Material order","Safety plan","Permit filed","Site survey","Equipment reserved","Subcontractor briefed"];
-let jobs=[],nextId=1,curYear=new Date().getFullYear(),curMonth=new Date().getMonth(),view="month",filterCrew=0,modal=null,editJob=null,dragJobId=null;
 
-function save(){try{localStorage.setItem("csc-jobs",JSON.stringify(jobs));localStorage.setItem("csc-nid",String(nextId));}catch(e){}}
-function load(){try{const r=localStorage.getItem("csc-jobs");if(r)jobs=JSON.parse(r);const r2=localStorage.getItem("csc-nid");if(r2)nextId=parseInt(r2)||nextId;}catch(e){}}
+// ── STATE ─────────────────────────────────────────────────
+let jobs=[],curYear=new Date().getFullYear(),curMonth=new Date().getMonth(),view="month",filterCrew=0,modal=null,editJob=null,dragJobId=null;
+
+// ── PASSWORD ──────────────────────────────────────────────
+function checkPw(){
+  const input=document.getElementById("pw-input").value;
+  if(input==="124commerceway"){
+    document.getElementById("password-screen").style.display="none";
+    document.getElementById("loading-screen").style.display="flex";
+    initApp();
+  } else {
+    document.getElementById("pw-error").style.display="block";
+    document.getElementById("pw-input").value="";
+    document.getElementById("pw-input").focus();
+  }
+}
+document.getElementById("pw-input").focus();
+
+// ── SUPABASE CRUD ─────────────────────────────────────────
+function setBadge(state,text){
+  const b=document.getElementById("sync-badge");
+  if(!b)return;
+  b.textContent=text;
+  b.className="sync-badge "+(state==="ok"?"sync-ok":state==="busy"?"sync-busy":"sync-err");
+}
+
+function mapRow(r){
+  let pre={};try{pre=JSON.parse(r.pre_construction||"{}");}catch{}
+  return{id:r.id,title:r.title||"",crewId:r.crew_id||1,date:r.job_date||"",location:r.location||"",status:r.status||"Pending",notes:r.notes||"",pre,reminder:r.reminder||false,reminderEmail:r.reminder_email||""};
+}
+function toRow(d){
+  return{title:d.title,crew_id:d.crewId,job_date:d.date,location:d.location||"",status:d.status,notes:d.notes||"",pre_construction:JSON.stringify(d.pre||{}),reminder:d.reminder||false,reminder_email:d.reminderEmail||""};
+}
+
+async function fetchJobs(){
+  setBadge("busy","Loading...");
+  const{data,error}=await db.from("jobs").select("*").order("job_date",{ascending:true});
+  if(error)throw error;
+  jobs=data.map(mapRow);
+  setBadge("ok","● Live");
+}
+
+async function createJob(data){
+  setBadge("busy","Saving...");
+  const{data:row,error}=await db.from("jobs").insert(toRow(data)).select().single();
+  if(error)throw error;
+  jobs.push(mapRow(row));
+  setBadge("ok","● Live");
+  return row.id;
+}
+
+async function updateJob(id,data){
+  setBadge("busy","Saving...");
+  const{error}=await db.from("jobs").update(toRow(data)).eq("id",id);
+  if(error)throw error;
+  const idx=jobs.findIndex(j=>j.id===id);
+  if(idx>-1)jobs[idx]={...jobs[idx],...data};
+  setBadge("ok","● Live");
+}
+
+async function deleteJob(id){
+  setBadge("busy","Deleting...");
+  const{error}=await db.from("jobs").delete().eq("id",id);
+  if(error)throw error;
+  jobs=jobs.filter(j=>j.id!==id);
+  setBadge("ok","● Live");
+}
+
+async function initApp(){
+  try{
+    await fetchJobs();
+    document.getElementById("loading-screen").style.display="none";
+    document.getElementById("app").style.display="flex";
+    render();
+    // Real-time updates — any change by any team member updates everyone instantly
+    db.channel("jobs-changes")
+      .on("postgres_changes",{event:"*",schema:"public",table:"jobs"},async()=>{
+        await fetchJobs();render();
+      })
+      .subscribe();
+  }catch(e){
+    document.getElementById("loading-screen").innerHTML=`<p style="color:#DC2626;padding:20px;text-align:center">Connection error: ${e.message}<br><br><small>Check your Supabase table is named "jobs" and RLS is disabled.</small></p>`;
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────
 const crewById=id=>CREWS.find(c=>c.id===id)||CREWS[0];
 const pad=n=>String(n).padStart(2,"0");
 const todayStr=()=>{const t=new Date();return`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`};
@@ -153,6 +273,7 @@ function getConflicts(){const map={};jobs.forEach(j=>{const k=`${j.crewId}|${j.d
 function hasConflictOnDay(ds){const map={};activeJobs().filter(j=>j.date===ds).forEach(j=>map[j.crewId]=(map[j.crewId]||0)+1);return Object.values(map).some(v=>v>1);}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 
+// ── RENDER ────────────────────────────────────────────────
 function render(){
   renderCrewList();
   document.querySelectorAll(".overlay").forEach(e=>e.remove());
@@ -184,7 +305,9 @@ function buildTopbar(){
   const toggle=document.createElement("div");toggle.className="view-toggle";
   [["month","Month"],["week","Week"],["dash","Dashboard"]].forEach(([k,label])=>{const b=el("button","view-btn"+(view===k?" active":""),label);b.onclick=()=>{view=k;render()};toggle.appendChild(b);});
   const addBtn=el("button","btn-primary","+ New job");addBtn.onclick=()=>openNewJob(null);
-  t.append(prev,title,next,todayBtn,toggle,addBtn);
+  const refreshBtn=el("button","today-btn","↻");refreshBtn.title="Refresh";refreshBtn.style.marginLeft="4px";
+  refreshBtn.onclick=async()=>{await fetchJobs();render()};
+  t.append(prev,title,next,todayBtn,toggle,addBtn,refreshBtn);
   return t;
 }
 
@@ -201,7 +324,7 @@ function buildStatsBar(){
 
 function buildDayHeaders(){
   const hdr=document.createElement("div");hdr.className="day-headers";
-  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{hdr.appendChild(el("div","day-hdr",d))});
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>hdr.appendChild(el("div","day-hdr",d)));
   return hdr;
 }
 
@@ -236,7 +359,10 @@ function buildMonthGrid(){
     if(dayJobs.length>3)cell.appendChild(el("div","more-jobs",`+${dayJobs.length-3} more`));
     cell.ondragover=e=>{e.preventDefault();cell.classList.add("drag-over")};
     cell.ondragleave=()=>cell.classList.remove("drag-over");
-    cell.ondrop=e=>{e.preventDefault();cell.classList.remove("drag-over");if(dragJobId){const job=jobs.find(j=>j.id===dragJobId);if(job){job.date=ds;save();render();}}};
+    cell.ondrop=async e=>{
+      e.preventDefault();cell.classList.remove("drag-over");
+      if(dragJobId){const job=jobs.find(j=>j.id===dragJobId);if(job){const old=job.date;job.date=ds;render();try{await updateJob(job.id,job);}catch{job.date=old;render();}}}
+    };
     cell.onclick=()=>openNewJob(ds);
     grid.appendChild(cell);
   }
@@ -283,6 +409,7 @@ function buildDashboard(){
   dash.appendChild(rs);return dash;
 }
 
+// ── MODAL ─────────────────────────────────────────────────
 function openNewJob(date){editJob=null;const pre={};PRECONSTRUCT.forEach((_,i)=>pre[i]=false);modal={mode:"new",date:date||todayStr(),title:"",crewId:CREWS[0].id,location:"",status:"Pending",notes:"",pre,reminder:false,reminderEmail:""};render();}
 function openEditJob(j){editJob=j;modal={mode:"edit",...JSON.parse(JSON.stringify(j))};render();}
 
@@ -313,35 +440,28 @@ function buildModal(){
   m.appendChild(rw);
   setTimeout(()=>{const cb2=document.getElementById("f-reminder");if(cb2)cb2.onchange=()=>{document.getElementById("email-wrap").style.display=cb2.checked?"block":"none"}},0);
   const actions=document.createElement("div");actions.className="modal-actions";
-  if(!isNew){const del=el("button","btn-danger","Delete");del.onclick=()=>{jobs=jobs.filter(j=>j.id!==editJob.id);save();modal=null;render()};actions.appendChild(del);}
+  if(!isNew){
+    const del=el("button","btn-danger","Delete");
+    del.onclick=async()=>{try{await deleteJob(editJob.id);}catch(e){alert("Delete failed: "+e.message);return;}modal=null;render();};
+    actions.appendChild(del);
+  }
   const cancel=el("button","btn-ghost","Cancel");cancel.onclick=()=>{modal=null;render()};
   const saveBtn=el("button","btn-primary","Save job");
-  saveBtn.onclick=()=>{
+  saveBtn.onclick=async()=>{
     const t=m.querySelector("#f-title").value.trim();
     if(!t){m.querySelector("#f-title").style.borderColor="#DC2626";return}
     const pre={};PRECONSTRUCT.forEach((_,i)=>pre[i]=m.querySelector(`#pre-${i}`).checked);
     const remCb=m.querySelector("#f-reminder");
     const data={title:t,crewId:parseInt(m.querySelector("#f-crew").value),date:m.querySelector("#f-date").value,location:m.querySelector("#f-location").value,status:m.querySelector("#f-status").value,notes:m.querySelector("#f-notes").value,pre,reminder:remCb.checked,reminderEmail:m.querySelector("#f-reminder-email")?.value||""};
-    if(isNew)jobs.push({id:nextId++,...data});
-    else{const idx=jobs.findIndex(j=>j.id===editJob.id);if(idx>-1)jobs[idx]={...jobs[idx],...data}}
-    save();modal=null;render();
+    modal=null;render();
+    try{
+      if(isNew){await createJob(data);}
+      else{await updateJob(editJob.id,data);}
+      render();
+    }catch(e){alert("Save failed: "+e.message);}
   };
   actions.append(cancel,saveBtn);m.appendChild(actions);overlay.appendChild(m);return overlay;
 }
-
-function checkPw(){
-  const input=document.getElementById("pw-input").value;
-  if(input==="124commerceway"){
-    document.getElementById("password-screen").style.display="none";
-    document.getElementById("app").style.display="flex";
-    load();render();
-  } else {
-    document.getElementById("pw-error").style.display="block";
-    document.getElementById("pw-input").value="";
-    document.getElementById("pw-input").focus();
-  }
-}
-document.getElementById("pw-input").focus();
 </script>
 </body>
 </html>
