@@ -205,10 +205,10 @@ function setBadge(state,text){
 
 function mapRow(r){
   let pre={};try{pre=JSON.parse(r.pre_construction||"{}");}catch{}
-  return{id:r.id,title:r.title||"",crewId:r.crew_id||1,date:r.job_date||"",location:r.location||"",status:r.status||"Pending",notes:r.notes||"",pre,reminder:r.reminder||false,reminderEmail:r.reminder_email||""};
+  return{id:r.id,title:r.title||"",crewId:r.crew_id||1,date:r.job_date||"",duration:r.duration||1,location:r.location||"",status:r.status||"Pending",notes:r.notes||"",pre,reminder:r.reminder||false,reminderEmail:r.reminder_email||""};
 }
 function toRow(d){
-  return{title:d.title,crew_id:d.crewId,job_date:d.date,location:d.location||"",status:d.status,notes:d.notes||"",pre_construction:JSON.stringify(d.pre||{}),reminder:d.reminder||false,reminder_email:d.reminderEmail||""};
+  return{title:d.title,crew_id:d.crewId,job_date:d.date,duration:d.duration||1,location:d.location||"",status:d.status,notes:d.notes||"",pre_construction:JSON.stringify(d.pre||{}),reminder:d.reminder||false,reminder_email:d.reminderEmail||""};
 }
 
 async function fetchJobs(){
@@ -267,10 +267,12 @@ const crewById=id=>CREWS.find(c=>c.id===id)||CREWS[0];
 const pad=n=>String(n).padStart(2,"0");
 const todayStr=()=>{const t=new Date();return`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`};
 const dateStr=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
+function calcEndDate(startDate,days){const d=new Date(startDate);d.setDate(d.getDate()+(parseInt(days)||1)-1);return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+function jobSpansDay(job,ds){const start=new Date(job.date);const end=new Date(calcEndDate(job.date,job.duration||1));const check=new Date(ds);return check>=start&&check<=end;}
 const jobsForMonth=(y,m)=>jobs.filter(j=>{const d=new Date(j.date);return d.getFullYear()===y&&d.getMonth()===m});
 const activeJobs=()=>filterCrew===0?jobs:jobs.filter(j=>j.crewId===filterCrew);
 function getConflicts(){const map={};jobs.forEach(j=>{const k=`${j.crewId}|${j.date}`;(map[k]=map[k]||[]).push(j)});return Object.values(map).filter(a=>a.length>1);}
-function hasConflictOnDay(ds){const map={};activeJobs().filter(j=>j.date===ds).forEach(j=>map[j.crewId]=(map[j.crewId]||0)+1);return Object.values(map).some(v=>v>1);}
+function hasConflictOnDay(ds){const map={};activeJobs().filter(j=>jobSpansDay(j,ds)).forEach(j=>map[j.crewId]=(map[j.crewId]||0)+1);return Object.values(map).some(v=>v>1);}
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 
 // ── RENDER ────────────────────────────────────────────────
@@ -345,12 +347,13 @@ function buildMonthGrid(){
     numRow.appendChild(el("div","day-num",day));
     if(hasConflictOnDay(ds)){const dot=document.createElement("div");dot.className="conflict-dot";dot.title="Crew conflict";numRow.appendChild(dot);}
     cell.appendChild(numRow);
-    const dayJobs=aj.filter(j=>j.date===ds);
+    const dayJobs=aj.filter(j=>jobSpansDay(j,ds));
     dayJobs.slice(0,3).forEach(j=>{
       const crew=crewById(j.crewId);
+      const isStart=j.date===ds;
       const chip=document.createElement("button");chip.className="job-chip";
-      chip.style.cssText=`background:${crew.light};color:${crew.dark}`;
-      chip.textContent=j.title;chip.draggable=true;
+      chip.style.cssText=`background:${crew.light};color:${crew.dark};${!isStart?"opacity:.75;":""}`;
+      chip.textContent=isStart&&(j.duration||1)>1?`${j.title} (${j.duration}d)`:j.title;chip.draggable=isStart;
       chip.ondragstart=e=>{dragJobId=j.id;chip.classList.add("dragging");e.dataTransfer.effectAllowed="move"};
       chip.ondragend=()=>{dragJobId=null;chip.classList.remove("dragging")};
       chip.onclick=e=>{e.stopPropagation();openEditJob(j)};
@@ -422,8 +425,11 @@ function buildModal(){
   const h2=el("h2",null,isNew?"New job":"Edit job");
   const cb=el("button","close-btn","×");cb.onclick=()=>{modal=null;render()};
   mh.append(h2,cb);m.appendChild(mh);
-  const twoRow=document.createElement("div");twoRow.className="form-row two";
-  twoRow.innerHTML=`<div><label>Date</label><input type="date" id="f-date" value="${modal.date}"></div><div><label>Status</label><select id="f-status">${STATUSES.map(s=>`<option${s===modal.status?" selected":""}>${s}</option>`).join("")}</select></div>`;
+      const twoRow=document.createElement("div");twoRow.className="form-row two";
+  twoRow.innerHTML=`<div><label>Start date</label><input type="date" id="f-date" value="${modal.date}"></div><div><label>Status</label><select id="f-status">${STATUSES.map(s=>`<option${s===modal.status?" selected":""}>${s}</option>`).join("")}</select></div>`;
+  m.appendChild(twoRow);
+  const durRow=document.createElement("div");durRow.className="form-row two";
+  durRow.innerHTML=`<div><label>Duration (days)</label><input type="number" id="f-duration" min="1" value="${modal.duration||1}" placeholder="e.g. 5"></div><div><label>End date</label><input type="date" id="f-enddate" value="${calcEndDate(modal.date,modal.duration||1)}" readonly style="background:#FAFAF9;color:#78716C"></div>`;
   m.appendChild(twoRow);
   const addRow=(label,html)=>{const r=document.createElement("div");r.className="form-row";r.innerHTML=`<label>${label}</label>${html}`;m.appendChild(r)};
   addRow("Job title",`<input type="text" id="f-title" placeholder="e.g. Foundation pour" value="${modal.title||""}">`);
@@ -438,7 +444,15 @@ function buildModal(){
   const rw=document.createElement("div");rw.className="reminder-wrap";
   rw.innerHTML=`<div class="reminder-toggle-row"><input type="checkbox" id="f-reminder"${modal.reminder?" checked":""}><label for="f-reminder" style="cursor:pointer">Send reminder 4 weeks before start date</label></div><div id="email-wrap" style="display:${modal.reminder?"block":"none"}"><input type="email" id="f-reminder-email" class="reminder-email-input" placeholder="Recipient email" value="${modal.reminderEmail||""}"><div class="reminder-note">✉ Email sending activates once Microsoft 365 is connected</div></div>`;
   m.appendChild(rw);
-  setTimeout(()=>{const cb2=document.getElementById("f-reminder");if(cb2)cb2.onchange=()=>{document.getElementById("email-wrap").style.display=cb2.checked?"block":"none"}},0);
+  m.appendChild(durRow);
+  setTimeout(()=>{
+    const dateIn=document.getElementById("f-date");
+    const durIn=document.getElementById("f-duration");
+    const endIn=document.getElementById("f-enddate");
+    const update=()=>{if(dateIn.value&&durIn.value)endIn.value=calcEndDate(dateIn.value,parseInt(durIn.value)||1)};
+    dateIn.oninput=update;durIn.oninput=update;
+    const cb2=document.getElementById("f-reminder");if(cb2)cb2.onchange=()=>{document.getElementById("email-wrap").style.display=cb2.checked?"block":"none"}
+  },0);
   const actions=document.createElement("div");actions.className="modal-actions";
   if(!isNew){
     const del=el("button","btn-danger","Delete");
@@ -452,7 +466,7 @@ function buildModal(){
     if(!t){m.querySelector("#f-title").style.borderColor="#DC2626";return}
     const pre={};PRECONSTRUCT.forEach((_,i)=>pre[i]=m.querySelector(`#pre-${i}`).checked);
     const remCb=m.querySelector("#f-reminder");
-    const data={title:t,crewId:parseInt(m.querySelector("#f-crew").value),date:m.querySelector("#f-date").value,location:m.querySelector("#f-location").value,status:m.querySelector("#f-status").value,notes:m.querySelector("#f-notes").value,pre,reminder:remCb.checked,reminderEmail:m.querySelector("#f-reminder-email")?.value||""};
+    const data={title:t,crewId:parseInt(m.querySelector("#f-crew").value),date:m.querySelector("#f-date").value,duration:parseInt(m.querySelector("#f-duration").value)||1,location:m.querySelector("#f-location").value,status:m.querySelector("#f-status").value,notes:m.querySelector("#f-notes").value,pre,reminder:remCb.checked,reminderEmail:m.querySelector("#f-reminder-email")?.value||""};
     modal=null;render();
     try{
       if(isNew){await createJob(data);}
