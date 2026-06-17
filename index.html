@@ -228,9 +228,9 @@ function toRow(d){
 async function fetchJobs(){
   setBadge("busy","Loading...");
   const{data,error}=await db.from("jobs").select("*").order("job_date",{ascending:true});
-  if(error)throw error;
+  if(error){ setBadge("err","⚠ Fetch error"); console.error("fetchJobs error:",error); throw error; }
   jobs=data.map(mapRow);
-  setBadge("ok","● Live");
+  setBadge("ok",`● Live — ${jobs.length} jobs`);
 }
 
 async function createJob(data){
@@ -269,11 +269,11 @@ async function initApp(){
       .on("postgres_changes",{event:"*",schema:"public",table:"jobs"},async()=>{
         await fetchJobs(); render();
       }).subscribe((status)=>{
-        if(status==="SUBSCRIBED") setBadge("ok","● Live — real-time");
-        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") setBadge("busy","● Polling every 30s");
+        if(status==="SUBSCRIBED") setBadge("ok",`● Live — ${jobs.length} jobs`);
+        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") setBadge("busy","● Polling every 15s");
       });
-    // Auto-refresh every 30 seconds as a reliable fallback
-    setInterval(async()=>{ await fetchJobs(); render(); }, 30000);
+    // Auto-refresh every 15 seconds
+    setInterval(async()=>{ await fetchJobs(); render(); }, 15000);
   }catch(e){
     document.getElementById("loading-screen").innerHTML=
       `<p style="color:#DC2626;padding:20px;text-align:center">Connection error: ${e.message}<br><br>
