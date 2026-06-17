@@ -183,8 +183,9 @@ let jobs=[], curYear=new Date().getFullYear(), curMonth=new Date().getMonth();
 let view="month", filterCrew=0, modal=null, editJob=null, dragJobId=null;
 
 // ── PASSWORD ──────────────────────────────────────────────
-function checkPw(){
-  if(document.getElementById("pw-input").value==="124commerceway"){
+window.checkPw = function(){
+  const val = document.getElementById("pw-input").value;
+  if(val === "124commerceway"){
     document.getElementById("password-screen").style.display="none";
     document.getElementById("loading-screen").style.display="flex";
     initApp();
@@ -193,7 +194,7 @@ function checkPw(){
     document.getElementById("pw-input").value="";
     document.getElementById("pw-input").focus();
   }
-}
+};
 document.getElementById("pw-input").focus();
 
 // ── SUPABASE ──────────────────────────────────────────────
