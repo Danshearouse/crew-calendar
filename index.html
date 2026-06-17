@@ -432,8 +432,12 @@ function buildModal(){
   durRow.innerHTML=`<div><label>Duration (days)</label><input type="number" id="f-duration" min="1" value="${modal.duration||1}" placeholder="e.g. 5"></div><div><label>End date</label><input type="date" id="f-enddate" value="${calcEndDate(modal.date,modal.duration||1)}" readonly style="background:#FAFAF9;color:#78716C"></div>`;
   m.appendChild(twoRow);
   const addRow=(label,html)=>{const r=document.createElement("div");r.className="form-row";r.innerHTML=`<label>${label}</label>${html}`;m.appendChild(r)};
-  addRow("Job title",`<input type="text" id="f-title" placeholder="e.g. Foundation pour" value="${modal.title||""}">`);
+    addRow("Job title",`<input type="text" id="f-title" placeholder="e.g. Foundation pour" value="${modal.title||""}">`);
   addRow("Location / address",`<input type="text" id="f-location" placeholder="e.g. 123 Oak St" value="${modal.location||""}">`);
+  // Duration row
+  const durRow=document.createElement("div");durRow.className="form-row two";
+  durRow.innerHTML=`<div><label>Duration (days)</label><input type="number" id="f-duration" min="1" value="${modal.duration||1}" placeholder="e.g. 5"></div><div><label>End date (auto)</label><input type="date" id="f-enddate" value="${calcEndDate(modal.date,modal.duration||1)}" readonly style="background:#FAFAF9;color:#78716C"></div>`;
+  m.appendChild(durRow);
   const cr=document.createElement("div");cr.className="form-row";cr.innerHTML=`<label>Assigned crew</label><select id="f-crew">${CREWS.map(c=>`<option value="${c.id}"${c.id===modal.crewId?" selected":""}>${c.name}</option>`).join("")}</select>`;m.appendChild(cr);
   addRow("Notes",`<textarea id="f-notes" placeholder="Additional notes...">${modal.notes||""}</textarea>`);
   m.appendChild(el("div","section-label","Pre-construction checklist"));
@@ -444,13 +448,13 @@ function buildModal(){
   const rw=document.createElement("div");rw.className="reminder-wrap";
   rw.innerHTML=`<div class="reminder-toggle-row"><input type="checkbox" id="f-reminder"${modal.reminder?" checked":""}><label for="f-reminder" style="cursor:pointer">Send reminder 4 weeks before start date</label></div><div id="email-wrap" style="display:${modal.reminder?"block":"none"}"><input type="email" id="f-reminder-email" class="reminder-email-input" placeholder="Recipient email" value="${modal.reminderEmail||""}"><div class="reminder-note">✉ Email sending activates once Microsoft 365 is connected</div></div>`;
   m.appendChild(rw);
-  m.appendChild(durRow);
   setTimeout(()=>{
     const dateIn=document.getElementById("f-date");
     const durIn=document.getElementById("f-duration");
     const endIn=document.getElementById("f-enddate");
-    const update=()=>{if(dateIn.value&&durIn.value)endIn.value=calcEndDate(dateIn.value,parseInt(durIn.value)||1)};
-    dateIn.oninput=update;durIn.oninput=update;
+    const update=()=>{if(dateIn&&durIn&&endIn)endIn.value=calcEndDate(dateIn.value,parseInt(durIn.value)||1)};
+    if(dateIn)dateIn.oninput=update;
+    if(durIn)durIn.oninput=update;
     const cb2=document.getElementById("f-reminder");if(cb2)cb2.onchange=()=>{document.getElementById("email-wrap").style.display=cb2.checked?"block":"none"}
   },0);
   const actions=document.createElement("div");actions.className="modal-actions";
